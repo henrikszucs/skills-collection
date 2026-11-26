@@ -1,247 +1,263 @@
-# Elements
+# Elements (beercss 5.0.3)
 
-The markup each component needs in the vendored build. beercss selects on
-**structure** as much as on class names (`.field > label`, `menu > li > menu`,
-`nav > a > .badge`), so a component with the right classes in the wrong nesting
-renders wrong and reports nothing.
+Component size scale where supported: `tiny small medium large extra`.
+Icons are `<i>name</i>` (Material Symbols); `i.fill` gives the filled glyph.
 
-Every pattern below was read out of `libs/beercss/beer.min.css`. When you need
-one that is not here, pull its real selectors rather than guessing:
-
-```bash
-node -e "const c=require('fs').readFileSync('src/client/web/libs/beercss/beer.min.css','utf8');\
-const s=[];let d=0,b='';for(const x of c){if(x==='{'){if(!d)s.push(b.trim());d++;b='';continue}\
-if(x==='}'){d--;b='';continue}if(!d)b+=x}\
-console.log(s.filter(x=>/\.slider([^-\w]|$)/.test(x)).join('\n'))"
-```
-
-## Sizes
-
-Most elements take the same scale, and they mean size, not importance:
-`tiny`, `small`, `medium`, `large`, `extra`. The helper scales are narrower and
-uneven - there is no `medium-round`, and no `medium-padding` - and four helpers
-(`padding`, `margin`, `round`, `blur`) work bare through a substring selector
-rather than a rule of their own. See [HELPERS.md](HELPERS.md).
-
-## Dialog
+## Button, chip, FAB
 
 ```html
-<div class="overlay" id="dialog-overlay"></div>
-
-<dialog id="dialog-example">
-    <nav>
-        <h5 class="max">Title</h5>
-        <button class="circle transparent"><i>close</i></button>
-    </nav>
-    <p>Body.</p>
-    <nav class="right-align">
-        <button class="border">Cancel</button>
-        <button>Confirm</button>
-    </nav>
-</dialog>
+<button>Text</button>
+<button class="border">Outlined</button>
+<button class="transparent circle"><i>close</i></button>
+<button class="large round"><i>add</i><span>Create</span></button>
+<button class="extend"><i>edit</i><span>Compose</span></button>  <!-- FAB that grows on hover -->
+<a class="button fill">Link styled as button</a>
+<div class="chip"><i>done</i><span>Filter</span></div>
+<button class="circle"><progress class="circle small"></progress></button>
 ```
 
-`dialog` and the overlay are shown by adding `active` to each. Sizes:
-`small`, `medium`, `large`. Positions: `top`, `bottom`, `left`, `right`, `max`
-(a `left` dialog is the side-sheet the `menu` module uses). A `header` or
-`footer` child is styled as one, and `fixed` on it pins it while the body
-scrolls.
+Fill: default (primary), `fill` (tonal), `border`, `transparent`, or any colour
+class. Shape: `round`, `circle`, `square`, `small-round`, `left-round`,
+`right-round`. Also `vertical` (icon over label), `responsive` (full width),
+`disabled` attribute.
 
-**In this repo, do not toggle `active` yourself.** Extend `Dialog` from
-`src/view.js` and let the router open and close it - `show()`/`hide()` there
-already handle the overlay and the overlay click.
-
-## Nav
+## Button group
 
 ```html
-<nav class="top">                      <!-- top | bottom | left | right -->
-    <button class="circle transparent"><i>menu</i></button>
-    <div class="max"></div>            <!-- the spacer that pushes the rest over -->
-    <button class="circle transparent"><i>settings</i></button>
-</nav>
-
-<nav class="left max">                 <!-- max = the wide rail, labels beside icons -->
-    <header>...</header>
-    <a data-route="devices">
-        <div>                          <!-- a badge needs this wrapper -->
-            <i>devices</i>
-            <div class="badge min top left"></div>
-        </div>
-        <div>Devices</div>
-    </a>
-    <div class="max"></div>            <!-- pushes what follows to the bottom -->
-    <a class="primary"><i>download</i><div>Download</div></a>
+<nav class="group connected">          <!-- connected | split -->
+  <button class="active">Day</button>
+  <button>Week</button>
 </nav>
 ```
-
-`.max` on the rail is the wide/narrow switch, and it moves where the badge has
-to sit: beercss matches `nav.left > a > .badge`, so in the narrow rail the badge
-is a direct child of the `<a>` and in the wide one it has to be inside the
-wrapper `<div>` beside the icon. `index.js` does exactly this re-parenting in
-`switchMenu()` - keep new nav entries consistent with it.
-
-Variants: `nav.tabbed` (underlined tabs, `> a.active` marks the current one),
-`nav.toolbar` (a floating group of `<a>`), `nav.group` (a connected set of
-buttons; add `split` or `connected`), `nav.vertical`.
 
 ## Field
 
 ```html
 <div class="field label border">
-    <input type="text" id="input-x"/>
-    <label>Label</label>
-    <span class="helper">Helper text</span>
+  <input type="text">
+  <label>Name</label>
+  <output>Helper text</output>
+  <output class="invalid">Shown only when the field has .invalid</output>
 </div>
 ```
 
-The `<input>` comes **first** and the `<label>` after it - the label floats off
-`:focus`/`:not(:placeholder-shown)` on the input before it. Modifiers on the
-wrapper: `label`, `border`, `fill`, `round`, `small`/`large`/`extra`,
-`prefix`/`suffix` (with an `<i>` before/after the input), `invalid`, `textarea`.
-A `.helper` or `.error` child is the line under the field; `.field > i` is the
-icon inside it, and `i.front` pins it to the leading edge.
-
-`ui/new/view.html` uses `<output class="invalid error-text">` here instead of
-`.helper`/`.error`, and `ui/new/index.js` reaches it as
-`field.children.item(2)`. That index breaks the moment a child is added -
-prefer `.error` and a query by class.
-
-## Menu
-
-```html
-<button class="circle">
-    <img src="/media/user.svg"/>
-    <menu class="border left no-wrap">
-        <li><i>login</i><span>Log in</span></li>
-        <li>
-            Submenu
-            <menu>                      <!-- menu > li > menu nests -->
-                <li>Item</li>
-            </menu>
-        </li>
-    </menu>
-</button>
-```
-
-The `<menu>` is a child of the element that opens it, and it stays open while
-that element holds focus - which is why `router.blurMenu()` blurs the parent
-after a `[data-route]` click inside one. Position with `left`, `right`, `top`,
-`min` (and combinations, `menu.top.left`).
-
-## List
-
-```html
-<ul class="list border">
-    <li class="wave round"><i>devices</i><span class="max">Label</span><i>chevron_right</i></li>
-    <li>
-        <details>                       <!-- an expander is a details in a li -->
-            <summary><i>tune</i><span class="max">More</span></summary>
-            <div>Body.</div>
-        </details>
-    </li>
-</ul>
-```
-
-beercss styles `.list > li`, `.list > li > a:only-child` and
-`.list > li > details > summary` the same way, so a whole-row link must be the
-`<li>`'s **only** child. `.max` on a child is what makes the row's text take the
-free space.
-
-## Grid and row
-
-```html
-<div class="grid">
-    <div class="s12 m6 l4">...</div>    <!-- spans per breakpoint -->
-</div>
-
-<div class="row center-align wrap">...</div>
-```
-
-`grid` is a 12-column grid; `s1`-`s12`, `m1`-`m12`, `l1`-`l12` set the span at
-each breakpoint (`s` up to 600px, `m` 601-992px, `l` 993px and up). `row` is a
-flex row - `wrap`, `no-space`/`space`/`large-space`, and `.max` on a child to
-let it take the rest. The same `s`/`m`/`l` used **alone** are visibility
-classes: `class="m l"` is hidden on small screens, which is how `nav.left` is
-hidden there.
-
-## Button, chip
-
-```html
-<button class="circle transparent"><i>close</i></button>
-<button class="large round"><i>cast</i><span>Join</span></button>
-<a class="button border">Link that looks like a button</a>
-<div class="chip small-round">Tag</div>
-```
-
-`button`, `.button` and `.chip` share their styling. Shape: `circle`, `square`,
-`round`, `small-round`, `left-round`/`right-round` (how `ui/new/view.html`
-welds a field to its button). Fill: default, `border`, `transparent`, `fill`,
-plus any colour class. `extend` is the wide FAB; `responsive` makes it fill its
-container; `vertical` stacks the icon over the label. Children are `<i>`,
-`<span>`, `<img>`, `<svg>` - beercss sizes them itself, so an `<img>` that
-should not be resized needs `responsive`.
-
-## Progress
-
-```html
-<progress></progress>                   <!-- indeterminate bar -->
-<progress class="circle large"></progress>
-<progress value="40" max="100"></progress>
-```
-
-`circle` is the spinner, and it also works as `.field > progress.circle`.
+- **`input`/`select`/`textarea` first, then `label`.** The label floats via
+  `:focus + label` and `[placeholder]:not(:placeholder-shown) + label`. The JS
+  sets `placeholder=" "` for you; without the JS, add it yourself.
+- Helper and error text are **`<output>`**. On `.field.invalid` the
+  `output.invalid` shows and the plain one hides.
+- Wrapper modifiers: `label`, `border`, `fill`, `round`, `small`/`large`/`extra`,
+  `prefix`/`suffix` (with an `<i>`, `<img>` or `<progress class="circle">` before/after
+  the input), `invalid`.
+- Password toggle: `<input type="password"><i>visibility</i>` in a `.field`
+  (the JS swaps the icon and type).
+- File/colour picker: `<input type="file"><input type="text">` in a `.field`;
+  the text input shows the file name.
+- Autocomplete: put a `<menu>` inside the field after the input.
 
 ## Selection controls
 
 ```html
 <label class="checkbox">                <!-- checkbox | radio | switch -->
-    <input type="checkbox"/>
-    <span>Label</span>
+  <input type="checkbox">
+  <span>Label</span>
+</label>
+<label class="switch icon">             <!-- icon: glyphs inside the thumb -->
+  <input type="checkbox">
+  <span><i>close</i><i>done</i></span>
 </label>
 ```
 
-The `<input>` first and a `<span>` after it, always - beercss draws the control
-on the `span::before`, so a missing `span` renders nothing.
+Always `input` then `span`; the control is drawn on the span. Group them in a
+`nav` or `.row`.
 
-## Tabs
+## Slider
 
 ```html
-<div class="tabs">
-    <a class="active">One</a>
-    <a>Two</a>
+<label class="slider">
+  <input type="range" value="40">
+  <span></span>                         <!-- the active track; required -->
+</label>
+<label class="slider">                  <!-- range: two inputs -->
+  <input type="range" value="20"><input type="range" value="80"><span></span>
+</label>
+```
+
+Modifiers: `vertical`, `max`, sizes. Add `<div class="tooltip"></div>` after the
+span for a value bubble.
+
+## Dialog
+
+```html
+<button data-ui="#d1">Open</button>
+<dialog id="d1">                        <!-- add class="modal" for showModal() -->
+  <h5>Title</h5>
+  <p>Body</p>
+  <nav class="right-align">
+    <button class="border" data-ui="#d1">Cancel</button>
+    <button data-ui="#d1">OK</button>
+  </nav>
+</dialog>
+```
+
+The JS inserts the `.overlay` before the dialog. A click on it or Escape closes
+the dialog, and it focuses `[autofocus]` on open. Sizes:
+`small`/`medium`/`large`. Placement: `top`, `bottom`, `left`, `right` (sheets),
+`max` (fullscreen). `header.fixed` / `footer.fixed` stay put while the body
+scrolls. Native `<dialog popover>` also works.
+
+## Navigation
+
+```html
+<nav class="left max">                  <!-- left|right|top|bottom; max = wide rail/drawer -->
+  <header>
+    <button class="extend square round"><i>edit</i><span>Compose</span></button>
+  </header>
+  <a class="active"><i>home</i><span>Home</span></a>
+  <a><i>inbox</i><span>Inbox</span><div class="badge">3</div></a>
+  <div class="divider"></div>
+  <a><i>settings</i><span>Settings</span></a>
+</nav>
+
+<nav>                                   <!-- plain nav = horizontal flex row -->
+  <button class="circle transparent"><i>menu</i></button>
+  <h6 class="max">Title</h6>
+  <button class="circle transparent"><i>more_vert</i></button>
+</nav>
+```
+
+`a.active` marks the current item. A badge goes directly in the `<a>` or inside
+the `<i>`. Other variants: `nav.toolbar` (floating pill of `<a>`; `fill`,
+`vertical`, `max`), `nav.tabbed`, and `nav.vertical`. Alignment helpers
+(`center-align`, `right-align`, `middle-align`) apply to `nav` and `.row`.
+
+## Header / footer (app bars)
+
+```html
+<header class="fixed primary">          <!-- fixed = sticky -->
+  <nav>
+    <button class="circle transparent"><i>arrow_back</i></button>
+    <h5 class="max">Page</h5>
+  </nav>
+</header>
+```
+
+## Tabs and pages
+
+```html
+<div class="tabs">                      <!-- .min = short indicator -->
+  <a class="active" data-ui="#p1">One</a>
+  <a data-ui="#p2">Two</a>
+</div>
+<div class="page padding active" id="p1">...</div>
+<div class="page padding" id="p2">...</div>
+```
+
+`ui("#p2")` activates a `.page` and deactivates its sibling pages. It doesn't
+move `a.active` on the tabs, so do that yourself. Add `left`, `right`, `top` or
+`bottom` to `.page` for the enter direction.
+
+## Menu
+
+```html
+<button class="circle transparent">
+  <i>more_vert</i>
+  <menu class="left no-wrap">           <!-- left|right|top, min, max, group -->
+    <li><i>edit</i><span>Edit</span></li>
+    <li>More
+      <menu><li>Nested</li></menu>
+    </li>
+  </menu>
+</button>
+```
+
+The menu is a **child of its trigger** and opens while the trigger holds focus.
+With `data-ui="#menuId"` on the trigger, clicks toggle it instead, and it
+closes on any outside click. A whole-row link has to be the `li`'s only child.
+
+## List and expansion
+
+```html
+<ul class="list border">                <!-- also no-space|medium-space|large-space -->
+  <li class="wave">
+    <i>person</i>
+    <div class="max"><h6 class="small">Name</h6><div>Subtitle</div></div>
+    <label>12:30</label>
+  </li>
+  <li><a><i>link</i><span class="max">Whole row is a link</span></a></li>
+  <li>
+    <details>
+      <summary><i>tune</i><span class="max">Expand</span><i>expand_more</i></summary>
+      <div>Content</div>
+    </details>
+  </li>
+</ul>
+```
+
+## Card
+
+```html
+<article class="round">                 <!-- small|medium|large (min height), border -->
+  <img class="responsive top-round" src="...">
+  <h5>Title</h5>
+  <p>Body</p>
+  <nav><button>Action</button></nav>
+</article>
+```
+
+## Grid and row
+
+```html
+<div class="grid">                      <!-- 12 columns; no-space|medium-space|large-space -->
+  <div class="s12 m6 l4">...</div>
+</div>
+<div class="row">                       <!-- flex row; wrap, space helpers, align helpers -->
+  <i>info</i><div class="max">Text</div><button>Go</button>
 </div>
 ```
 
-`.tabs > a.active` is the selected one. `nav.tabbed` is the same idea with the
-navigation bar's styling. Neither switches anything by itself - in this repo the
-panel behind a tab is a `Panel` from `src/view.js`.
-
-## Card, snackbar, badge, tooltip
+## Feedback
 
 ```html
-<article class="round">
-    <header>...</header>
-    <p>Body.</p>
-</article>
+<progress></progress>                           <!-- no value = indeterminate -->
+<progress value="40" max="100"></progress>
+<progress class="circle wavy"></progress>       <!-- circle, wavy, indeterminate, max -->
 
-<div class="snackbar">Saved.</div>              <!-- add active to show -->
-<div class="badge">3</div>                       <!-- min = the bare dot -->
-<div class="tooltip right">Explanation</div>     <!-- inside the element it describes -->
+<div class="snackbar" id="s1">Saved <a class="inverse-link">Undo</a></div>  <!-- .top to place at top -->
+<div class="badge">3</div>                       <!-- min = dot; top|bottom|left|right; border -->
+
+<button>Hover me<div class="tooltip bottom">Explains</div></button>  <!-- left|right|bottom; max = rich -->
 ```
 
-`article` is the card and takes `small`/`medium`/`large`, `border`, `round`.
-A `snackbar` shown through `ui("#id")` hides itself again; one shown by adding
-`active` does not. `badge` takes `top`/`bottom`/`left`/`right` for its corner
-and `min` for the dot with no number.
+## Table
 
-## Shapes
+```html
+<table class="stripes">                 <!-- no-space|medium-space|large-space -->
+  <thead><tr><th class="fixed">Name</th><th class="fixed min">Qty</th></tr></thead>
+  <tbody><tr><td>Beer</td><td>2</td></tr></tbody>
+</table>
+```
 
-This build carries the Material 3 expressive shapes: `.shape` plus one of
-`arch`, `boom`, `bun`, `burst`, `clamshell`, `diamond`, `fan`, `flower`, `gem`,
-`ghost-ish`, `heart`, `leaf-clover4`, `leaft-clover8`, `oval`, `pentagon`,
-`pill`, `pixel-circle`, `pixel-triangle`, `puffy`, `puffy-diamond`,
-`semicircle`, `sided-cookie4`/`6`/`7`/`9`/`12`, `slanted`, `soft-boom`,
-`soft-burst`, `sunny`, `very-sunny`, `triangle`, `arrow`, `net`, `stripes`.
+Wrap it in `<div class="scroll">` when it might overflow.
 
-`leaft-clover8` is spelled that way in beercss itself. The obvious spelling
-does nothing.
+## Media and empty state
+
+`img` / `video` take sizes, `round`, `circle`, `square`, `responsive`, and
+`empty-state`. `<div class="divider"></div>` or `<hr>` draws a rule; add
+`vertical` for a vertical one.
+
+## Shapes (M3 expressive)
+
+```html
+<div class="shape sunny large primary"><i>star</i></div>
+<div class="shape loading-indicator rotate"></div>
+```
+
+Names: `arch arrow boom bun burst circle clamshell diamond fan flower gem
+ghost-ish heart leaf-clover4 leaft-clover8 loading-indicator oval pentagon pill
+pixel-circle pixel-triangle puffy puffy-diamond semicircle sided-cookie4
+sided-cookie6 sided-cookie7 sided-cookie9 sided-cookie12 slanted soft-boom
+soft-burst square sunny triangle very-sunny`. Animate with `rotate`,
+`fast-rotate` or `slow-rotate`.
+
+`leaft-clover8` is misspelled upstream; the correct spelling does nothing.

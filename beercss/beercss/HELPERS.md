@@ -1,134 +1,74 @@
-# Helpers
+# Helpers (beercss 5.0.3)
 
-Every helper class in the vendored build, extracted from
-`libs/beercss/beer.min.css`. A name that is not on this page and does not
-contain one of the six substrings below does not exist in this build -
-including names that exist in upstream 5.x (`h1`-`h6`, `indeterminate`,
-`wavy`).
+Every name below exists in `beer.css` 5.0.3. Anything else does nothing.
 
-**The lists below are selector names, and beercss also matches on a substring
-of the class attribute**: `[class*=blur]`, `[class*=padding]`,
-`[class*=margin]`, `[class*=round]`, `[class*=width]`, `[class*=divider]`. So
-`padding`, `margin`, `round` and `blur` work on their own with a 1rem default
-even though no rule names them, and every entry in those families below is that
-same rule with a different amount.
+## Scales: where guesses go wrong
 
-Regenerate this list after any change to the vendored file:
-
-```bash
-node -e "const c=require('fs').readFileSync('src/client/web/libs/beercss/beer.min.css','utf8');\
-const s=new Set();for(const m of c.matchAll(/\.(-?[_a-zA-Z][_a-zA-Z0-9-]*)/g))s.add(m[1]);\
-console.log([...s].sort().join(' '))"
-```
-
-## The scales are not the same width
-
-This is where the guesses go wrong. The three spacing scales differ, and none
-of them is complete:
-
-| scale | values |
+| family | values |
 | --- | --- |
-| `-padding`, `-margin` | bare `padding`/`margin` (1rem), then `tiny` `small` `large` `no` — **no `medium`, no `extra`** |
-| `-space` | `tiny` `small` `medium` `large` `extra` `no`, plus bare `space` |
-| `-round` | `small` `large` `no`, plus bare `round` — **no `medium`, no `tiny`** |
-| component size | `tiny` `small` `medium` `large` `extra` |
+| padding / margin | `padding` (1rem), `no-` 0, `tiny-` .25rem, `small-` .5rem, `large-` 1.5rem; margin also `auto-margin`. **No medium, no extra.** |
+| side variants | `top-` `bottom-` `left-` `right-` `horizontal-` `vertical-` + `padding`/`margin` (1rem on that side only) |
+| space | `space`, `no-` `tiny-` `small-` `medium-` `large-` `extra-space` |
+| round | `round` (2rem), `small-round`, `large-round`, `no-round`, `top-` `bottom-` `left-` `right-round`. **No medium, no tiny.** |
+| width / height | `small-` `medium-` `large-` `auto-` + `width`/`height` |
+| element size | `tiny small medium large extra` |
 
-## Spacing
+Size and side don't combine on one class (no `small-top-padding`).
 
-Padding and margin take a size **or** a side, never both:
+`space` sets the **gap between children** on `nav`, `.row`, `.grid`, `menu`,
+`.list`, `table`, `.tooltip` and `.shape`. On any other element it's a vertical
+spacer block.
 
-```
-padding       tiny-padding  small-padding  large-padding  no-padding
-top-padding  bottom-padding  left-padding  right-padding
-horizontal-padding  vertical-padding
-
-margin       tiny-margin   small-margin  large-margin  no-margin  auto-margin
-top-margin  bottom-margin  left-margin  right-margin
-horizontal-margin  vertical-margin
-```
-
-`space` is the gap **between** children of a `row`, `grid`, `nav`, `list`,
-`menu` or `table`; on anything else it is vertical whitespace:
+## Layout and position
 
 ```
-space  tiny-space  small-space  medium-space  large-space  extra-space  no-space
+grid  row  max  min  wrap  no-wrap  responsive  scroll  no-scroll
+s1..s12  m1..m12  l1..l12        grid spans: s ≤600px, m 601–992px, l ≥993px
+s  m  l                          visibility: shown only at those breakpoints
+horizontal  vertical             flex direction
+absolute  fixed  front  back
+top  bottom  left  right  center  middle      placement (with absolute/fixed, menus, dialogs, tooltips, badges)
+left-align  right-align  center-align  top-align  bottom-align  middle-align
 ```
 
-## Size
-
-```
-tiny  small  medium  large  extra           component size
-small-width  medium-width  large-width      auto-width
-small-height medium-height large-height     auto-height
-max  min  responsive  wrap  no-wrap  truncate
-```
-
-`max` and `min` are context-dependent: on a flex child `max` takes the free
-space (which is how the nav spacer and the list row label work), on a `badge`
-`min` is the bare dot, on a `menu` it narrows it.
-
-## Shape
-
-```
-round  small-round  large-round  no-round
-top-round  bottom-round  left-round  right-round
-circle  square  border  no-border  oval  pill  shape
-```
-
-The expressive shapes that pair with `shape` are listed in
-[ELEMENTS.md](ELEMENTS.md).
-
-## Layout
-
-```
-grid                    12-column grid
-row                     flex row
-s1..s12  m1..m12  l1..l12    column span per breakpoint
-s  m  l                 visibility: present = shown at that breakpoint only
-group  connected  split  tabbed
-```
-
-Breakpoints: `s` to 600px, `m` 601-992px, `l` 993px and up. `class="m l"` is
-the idiom for "hidden on phones".
-
-## Position and alignment
-
-```
-top  bottom  left  right  center  middle  front  back
-top-align  bottom-align  left-align  right-align  center-align  middle-align
-absolute  fixed  vertical  horizontal  scroll  no-scroll  page
-```
+`class="m l"` = hidden on phones. `class="s"` = phones only.
 
 ## Colour
 
-Material 3 roles, each also as `-text` (foreground only) and `-border`:
+M3 roles, each also `-text` (foreground only) and `-border`:
 
 ```
-primary  secondary  tertiary  error        + -container, -text, -border
+primary  primary-container  secondary  secondary-container
+tertiary  tertiary-container  error  error-container
 surface  surface-variant  surface-dim  surface-bright
-surface-container  surface-container-low  surface-container-lowest
+surface-container-lowest  surface-container-low  surface-container
 surface-container-high  surface-container-highest
-inverse-surface  inverse-primary  inverse-link
-background  transparent  white  black  link
+inverse-surface  inverse-primary  background
+transparent  white  black  link  inverse-link
 ```
 
-Prefer these over the fixed palette below: they follow the light/dark mode and
-whatever `ui("theme", ...)` generated, where the palette does not.
-
-The fixed palette - each as the bare name, `-text`, `-border`, and tints `1`
-through `10` (`red5`, `blue-grey2`):
+Prefer roles: they follow light/dark mode and `ui("theme")`. Fixed palette
+(bare, `-text`, `-border`, tints `1`–`10` such as `red5`, `blue-grey2`):
 
 ```
-amber  blue  blue-grey  brown  cyan  deep-orange  deep-purple  green  grey
-indigo  light-blue  light-green  lime  orange  pink  purple  red  teal  yellow
+red pink purple deep-purple indigo blue light-blue cyan teal green
+light-green lime yellow amber orange deep-orange brown grey blue-grey
 ```
 
 ## Typography
 
 ```
-bold  italic  underline  overline  upper  lower  capitalize  truncate
+h1..h6 (as classes, e.g. <p class="h5">)  + small / large on any heading
 small-text  medium-text  large-text
-tiny-line  small-line  medium-line  large-line  extra-line  no-line
+bold  italic  underline  overline  upper  lower  capitalize  truncate
+no-line  tiny-line  small-line  medium-line  large-line  extra-line
+```
+
+## Borders and shape
+
+```
+border  no-border  circle  square  fill
+divider  small-divider  medium-divider  large-divider
 ```
 
 ## Effects
@@ -136,20 +76,22 @@ tiny-line  small-line  medium-line  large-line  extra-line  no-line
 ```
 elevate  small-elevate  medium-elevate  large-elevate  no-elevate
 shadow  top-shadow  bottom-shadow  left-shadow  right-shadow
-blur  small-blur  large-blur              bare blur is the 1rem default
+blur  small-blur  large-blur
 opacity  small-opacity  medium-opacity  large-opacity  no-opacity
 zoom  tiny-zoom  small-zoom  medium-zoom  large-zoom  extra-zoom
-wave  no-wave  ripple  fast-ripple  slow-ripple  ripple-js
+wave  no-wave                                    hover/press state layer
+ripple  fast-ripple  slow-ripple                 click ripple (needs JS)
 rotate  fast-rotate  slow-rotate
-divider  small-divider  medium-divider  large-divider
 ```
 
-## State and mode
+## State
 
 ```
-active  invalid  fill  none
-empty-state  loading-indicator
-light  dark                     on <body>, set by ui("mode", ...)
+active        open/selected (dialog, menu, snackbar, page, tab, nav link, overlay)
+invalid       on .field
+indeterminate on progress
+light  dark   on body
+none          hides a badge
 ```
 
-`hide` is **not** beercss - this repo defines it in `index.css`.
+There is no generic `hide` class. Use the `hidden` attribute or `s`/`m`/`l`.
