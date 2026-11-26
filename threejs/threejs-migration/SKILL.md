@@ -1,150 +1,117 @@
 ---
 name: threejs-migration
-description: Three.js version checks and migration - how to find the installed revision, renamed/removed/deprecated APIs by release (r125-r186), fixes for console deprecation warnings, outdated tutorial patterns (Geometry, encoding, uv2, legacy lights, Clock, RGBELoader, PCFSoftShadowMap, PostProcessing), and upgrade steps. Use when Three.js code throws "is not a constructor"/"undefined", logs a deprecation warning, comes from an old tutorial or LLM answer, or when upgrading three versions.
+description: Three.js version checks and migration - how to find the installed revision, renamed/removed/deprecated APIs by release (r125-r187), fixes for console deprecation warnings, outdated tutorial patterns (Geometry, encoding, uv2, legacy lights, Clock, RGBELoader, PCFSoftShadowMap, PostProcessing, iridescenceThicknessRange), and upgrade steps. Use when Three.js code throws "is not a constructor"/"undefined", logs a deprecation warning, comes from an old tutorial or LLM answer, or when upgrading three versions.
 ---
 
 # Three.js Version Checks and Migration
 
-The other `threejs-*` skills target **r186** (npm `three@0.186.x`, September 2026). three.js
-ships a release roughly monthly and renames or removes APIs regularly, so older code
-often breaks or warns.
+The `threejs-*` skills target **r187** (`three@0.187.0`, October 2026). three.js releases about
+monthly and renames or removes APIs often, so old code breaks or warns.
 
 ## 1. Find the Installed Version First
 
 ```bash
-node -e "console.log(require('three/package.json').version)"   # 0.186.1 means r186
-grep '"version"' node_modules/three/package.json
+node -e "console.log(require('three/package.json').version)"   # 0.187.0 = r187
 ```
 
-```javascript
-import * as THREE from "three";
-console.log(THREE.REVISION); // "186"
-```
+In code: `THREE.REVISION` (`"187"`). CDN/import map: the version is in the URL; always pin it.
 
-No local install (CDN/import map)? The version is in the URL (`three@0.186.1`). Pin an exact
-version; never use an unversioned `three` CDN URL in production.
+When this skill and the installed version disagree, **the installed source wins**: search
+`node_modules/three/src/` and `examples/jsm/` for `@deprecated` and `warn(`.
 
-When the code here and the installed version disagree, **the installed source is the truth**:
-read `node_modules/three/src/...` or `node_modules/three/examples/jsm/...` and look for
-`@deprecated` comments and `warn(` messages.
+## 2. New in r187 (from r186)
 
-## 2. Fix by Console Message
+| Change | Do this |
+| --- | --- |
+| `MeshPhysicalMaterial.iridescenceThicknessRange` deprecated | `iridescenceThicknessMinimum` / `iridescenceThicknessMaximum` (nm, default 100 / 400) |
+| `renderer.library.addLight(LightNode, Light)` deprecated (WebGPU) | `CustomLight.registerNode(CustomLightNode)` |
+| TSL struct storage buffers are always arrays | `storage.get('m')` -> `storage.element(0).get('m')` |
+| TSL `pixelationPass()` `pixelSize` | plain number only, no node |
+| `CubeUVReflectionMapping` removed; PMREM uses cube render targets | nothing to call; env-lit materials look slightly different |
+| `WebGLRenderer.setViewport()/setScissor()` | no pixel-ratio scaling while a render target is bound |
+| TSL math operands auto-promote to a common type | explicit casts are no longer needed for mixed `float`/`vec*` math |
+| XR camera matrices come from the first sub-camera (left eye) | only matters if you read `renderer.xr.getCamera()` transforms |
+| New: `MeshPhysicalMaterial.diffuseRoughness` (EON rough diffuse), `Texture.mipmapsAutoUpdate`, `emissiveNode` on Lambert/Phong/Toon node materials | optional |
 
-| Message / symptom | Cause | Fix |
+Coming in **r188** (unreleased, per the migration guide): `LightProbe`, `LightProbeGenerator`
+and `LightProbeHelper` are deprecated (use `scene.environment` or `LightProbeGrid`), ambient and
+hemisphere lights add specular to PBR materials, and AO becomes multi-bounce.
+
+## 3. Fix by Console Message
+
+| Message / symptom | Since | Fix |
 | --- | --- | --- |
-| `Clock: This module has been deprecated. Please use THREE.Timer` | r183 | `const timer = new THREE.Timer(); timer.connect(document);` then `timer.update(t)` + `timer.getDelta()` each frame |
-| `RGBELoader has been deprecated. Please use HDRLoader` | r180 | `import { HDRLoader } from "three/addons/loaders/HDRLoader.js"` (same usage) |
-| `PCFSoftShadowMap has been removed. Using PCFShadowMap instead` | deprecated r186 | `renderer.shadowMap.type = THREE.PCFShadowMap; light.shadow.radius = 4;` |
-| `"PostProcessing" has been renamed to "RenderPipeline"` | r183 (WebGPU) | `new THREE.RenderPipeline(renderer)` |
-| `"renderAsync()" has been deprecated` | r181 (WebGPU) | `await renderer.init()` once, then `render()` (or use `setAnimationLoop`) |
-| `.render() called before the backend is initialized` | WebGPU | `await renderer.init()` before the first manual render |
-| `Material "ShaderMaterial" is not compatible` | WebGPU | Rewrite as a node material with TSL (`threejs-webgpu-tsl`) |
-| `TransformControls` / "object not an instance of THREE.Object3D" | r169 | `scene.add(transformControls.getHelper())` |
-| `X is not a constructor` for `THREE.Geometry`, `THREE.Face3` | removed r125 | Use `BufferGeometry` (see `threejs-geometry`) |
-| `THREE.WebGL1Renderer is not a constructor` | removed r163 | `WebGLRenderer` (WebGL 2 only) |
+| `Clock: This module has been deprecated` | r183 | `new THREE.Timer()`; `timer.connect(document)`; per frame `timer.update(t)` then `getDelta()` |
+| `RGBELoader has been deprecated` | r180 | `HDRLoader` from `three/addons/loaders/HDRLoader.js` (same usage) |
+| `PCFSoftShadowMap has been removed. Using PCFShadowMap` | r186 | `PCFShadowMap` + `light.shadow.radius` |
+| `"PostProcessing" has been renamed to "RenderPipeline"` | r183 | `new THREE.RenderPipeline(renderer)` |
+| `"renderAsync()" has been deprecated` | r181 | `await renderer.init()` once, then `render()` |
+| `.render() called before the backend is initialized` | WebGPU | `await renderer.init()` first |
+| `Material "ShaderMaterial" is not compatible` | WebGPU | rewrite as node material + TSL |
+| TransformControls "not an instance of THREE.Object3D" | r169 | `scene.add(controls.getHelper())` |
+| `THREE.Geometry` / `Face3` is not a constructor | r125 | `BufferGeometry` |
+| `THREE.WebGL1Renderer` is not a constructor | r163 | `WebGLRenderer` (WebGL 2 only) |
 | `SVGLoader createShapes() is deprecated` | r185 | `shapePath.toShapes()` |
 | `Source has been renamed to TextureSource` | r186 | `THREE.TextureSource` |
-| `Matrix3 .rotate()/.scale()/.translate() is deprecated` | r185 | `makeRotation()` / `makeScale()` / `makeTranslation()` |
-| `.fromWorkingColorSpace() / .toWorkingColorSpace()` renamed | r177 | `ColorManagement.workingToColorSpace()` / `.colorSpaceToWorking()` |
-| TSL `label()` deprecated | r179 | `.setName()` |
-| TSL `cache()` deprecated | r181 | `isolate()` |
-| TSL `PI2` deprecated | r181 | `TWO_PI` |
-| TSL `transformedNormalView/World` deprecated | r178 | `normalView` / `normalWorld` |
-| `DRACOLoader: setDecoderConfig ... removed in r194` | deprecated | Remove the call |
-| `FirstPersonControls handleResize() has been removed` | r184 | Delete the call |
+| `Matrix3 .rotate()/.scale()/.translate()` deprecated | r185 | `makeRotation()` / `makeScale()` / `makeTranslation()` |
+| `Line2NodeMaterial: "lineColorNode"` deprecated | r185 | `colorNode` |
+| TSL `directionToFaceDirection()` renamed | r185 | `negateOnBackSide()` |
+| TSL `premultipliedGaussianBlur()` deprecated | r180 | `gaussianBlur(node, dir, sigma, { premultipliedAlpha: true })` |
+| TSL `label()` / `cache()` / `PI2` deprecated | r179-r181 | `setName()` / `isolate()` / `TWO_PI` |
+| TSL `transformedNormalView/World` | r178 | `normalView` / `normalWorld` |
+| `DRACOLoader setDecoderConfig` (removed in r194) | - | delete the call |
+| `FirstPersonControls handleResize()` removed | r184 | delete the call |
 | `USDZLoader` deprecated | r179 | `USDLoader` |
-| `LWOLoader` / `VTKLoader` deprecated | r185 / r184 | Convert assets to glTF |
-| `KTX2Loader detectSupportAsync()` deprecated | r181 | `await renderer.init(); ktx2Loader.detectSupport(renderer)` |
-| GLSL `inverseTransformDirection` (deprecated define) | r185 | `transformNormalByInverseViewMatrix(normal, viewMatrix)` / `transformDirectionByInverseViewMatrix(dir, viewMatrix)` |
-| `onBeforeCompile` replace has no effect, `output_fragment` not found | r154 | Chunk renamed `opaque_fragment` (`encodings_fragment` became `colorspace_fragment`) |
+| `LWOLoader` / `VTKLoader` deprecated | r185 / r184 | convert assets to glTF |
+| `KTX2Loader detectSupportAsync()` deprecated | r181 | `await renderer.init(); loader.detectSupport(renderer)` |
+| GLSL `inverseTransformDirection` | r185 | `transformNormalByInverseViewMatrix()` / `transformDirectionByInverseViewMatrix()` |
+| `onBeforeCompile` replace finds no `output_fragment` | r154 | chunk is `opaque_fragment`; `encodings_fragment` -> `colorspace_fragment` |
 
-## 3. Renamed and Removed APIs (old tutorial -> current)
-
-### Renderer and color
+## 4. Old Tutorial -> Current
 
 | Old | Current |
 | --- | --- |
-| `renderer.outputEncoding = THREE.sRGBEncoding` | `renderer.outputColorSpace = THREE.SRGBColorSpace` (default; r152) |
-| `texture.encoding = THREE.sRGBEncoding` | `texture.colorSpace = THREE.SRGBColorSpace` (r152) |
-| `THREE.LinearEncoding` | `THREE.LinearSRGBColorSpace` or `THREE.NoColorSpace` for data textures |
-| `renderer.gammaOutput`, `gammaFactor` | removed: color management handles it |
-| `renderer.physicallyCorrectLights = true` | always physical now (`useLegacyLights` removed r165): raise point/spot intensities (candela) |
-| `THREE.WebGLMultisampleRenderTarget` | `new THREE.WebGLRenderTarget(w, h, { samples: 4 })` (r138) |
-| `requestAnimationFrame(loop)` | `renderer.setAnimationLoop(loop)` (required for WebXR/WebGPU) |
-| `new THREE.Clock()` | `new THREE.Timer()` (r183) |
+| `renderer.outputEncoding = sRGBEncoding` | `outputColorSpace = SRGBColorSpace` (default, r152) |
+| `texture.encoding = sRGBEncoding` | `texture.colorSpace = SRGBColorSpace` |
+| `LinearEncoding` | `LinearSRGBColorSpace`, or `NoColorSpace` for data textures |
+| `physicallyCorrectLights`, `gammaOutput` | removed: always physical (r165); raise point/spot intensities (candela) |
+| `WebGLMultisampleRenderTarget` | `new WebGLRenderTarget(w, h, { samples: 4 })` |
+| `requestAnimationFrame(loop)` | `renderer.setAnimationLoop(loop)` |
+| `BoxBufferGeometry` etc. | `BoxGeometry` etc. |
+| `mergeBufferGeometries` | `mergeGeometries` |
+| `TextGeometry({ height })` | `{ depth }` (r163) |
+| `applyMatrix(m)` | `applyMatrix4(m)` |
+| `uv2` attribute for aoMap/lightMap | maps use `uv`; second set is `uv1` + `texture.channel = 1` (r151) |
+| `vertexColors: THREE.VertexColors` | `vertexColors: true` |
+| `extensions: { derivatives: true }` | remove (always on in WebGL 2) |
+| `THREE.ImageUtils.loadTexture()` | `new TextureLoader().load()` |
+| `THREE.Math`, `getInverse(m)`, `quaternion.inverse()` | `MathUtils`, `copy(m).invert()`, `invert()` |
+| `examples/js` globals (`THREE.OrbitControls`) | ES modules from `three/addons/...` (r148) |
+| `three/addons/nodes/Nodes.js`, `three/nodes` | `three/tsl` (functions) + `three/webgpu` (classes) |
+| `new FilmPass(noise, scanlines, ...)` | `new FilmPass(intensity, grayscale)` |
+| `new SMAAPass(w, h)` / `new HalftonePass(w, h, p)` | `new SMAAPass()` / `new HalftonePass(p)` |
+| `ShaderPass(GammaCorrectionShader)` | `new OutputPass()` (r153) |
+| `ShaderPass(FXAAShader)` + resolution | `new FXAAPass()` |
+| `ContactShadows` | does not exist (drei); see `threejs-lighting` |
+| sync `LightProbeGenerator.fromCubeRenderTarget()` | `await` it |
+| `SimplifyModifier.modify()` sync | `await` it (r186, meshoptimizer-based) |
+| `LightProbeGrid` (WebGL) | `LightProbeGridWebGL` (r186) |
 
-### Geometry
+## 5. Still Valid but Often Wrong
 
-| Old | Current |
-| --- | --- |
-| `THREE.Geometry`, `Face3`, `geometry.vertices/faces` | `BufferGeometry` + attributes (r125) |
-| `BoxBufferGeometry`, `SphereBufferGeometry`, ... | `BoxGeometry`, `SphereGeometry`, ... (aliases removed) |
-| `BufferGeometryUtils.mergeBufferGeometries` | `mergeGeometries` |
-| `BufferGeometryUtils.computeTangents(g)` | `geometry.computeTangents()` or `computeMikkTSpaceTangents` |
-| `TextGeometry({ height })` | `TextGeometry({ depth })` (r163) |
-| `CapsuleGeometry(radius, length, ...)` | `CapsuleGeometry(radius, height, capSegments, radialSegments, heightSegments)` |
-| `geometry.applyMatrix(m)` / `object.applyMatrix(m)` | `applyMatrix4(m)` |
-| `SVGLoader.createShapes(path)` | `path.toShapes()` (r185) |
+- Lights too dark: pre-r155 point-light intensities (`1`) are far too low now.
+- Washed-out textures: missing `colorSpace = SRGBColorSpace` on color maps.
+- Dark EffectComposer output: missing `OutputPass`.
+- Clones of skinned models share one skeleton: use `SkeletonUtils.clone()`.
+- Mixed `three` and `three/webgpu` renderers in one app, or two copies of `three` in the
+  bundle (`npm ls three`): breaks `instanceof` checks.
 
-### Materials and textures
+## 6. Upgrade Procedure
 
-| Old | Current |
-| --- | --- |
-| `geometry.setAttribute('uv2', ...)` for aoMap/lightMap | not needed; maps use `uv` by default. Second UV set: attribute `uv1` + `texture.channel = 1` (r151) |
-| `material.vertexColors = THREE.VertexColors` | `material.vertexColors = true` |
-| `ShaderMaterial({ extensions: { derivatives: true } })` | remove: always available in WebGL 2 (only `clipCullDistance`, `multiDraw` remain) |
-| GLSL `#include <output_fragment>` | `#include <opaque_fragment>` (r154) |
-| GLSL `#include <encodings_fragment>` | `#include <colorspace_fragment>` (r154) |
-| `THREE.ImageUtils.loadTexture()` | `new THREE.TextureLoader().load()` |
-| `RGBELoader` | `HDRLoader` (r180) |
-
-### Math
-
-| Old | Current |
-| --- | --- |
-| `THREE.Math` | `THREE.MathUtils` |
-| `matrix.getInverse(m)` | `matrix.copy(m).invert()` |
-| `quaternion.inverse()` | `quaternion.invert()` |
-| `Matrix3.rotate/scale/translate` | `makeRotation/makeScale/makeTranslation` (r185) |
-
-### Addons and post-processing
-
-| Old | Current |
-| --- | --- |
-| `examples/js/...` global scripts (`THREE.OrbitControls`) | ES modules: `import { OrbitControls } from "three/addons/controls/OrbitControls.js"` (examples/js removed r148) |
-| `three/examples/jsm/...` | still works; `three/addons/...` is the documented alias |
-| `scene.add(transformControls)` | `scene.add(transformControls.getHelper())` (r169) |
-| `new FilmPass(noise, scanlines, count, grayscale)` | `new FilmPass(intensity, grayscale)` |
-| `new SMAAPass(w, h)` | `new SMAAPass()` (sized by `composer.setSize`) |
-| `new HalftonePass(w, h, params)` | `new HalftonePass(params)` |
-| `ShaderPass(FXAAShader)` + manual resolution | `new FXAAPass()` (manual ShaderPass still works) |
-| `ShaderPass(GammaCorrectionShader)` at the end | `new OutputPass()` (tone mapping + color space; r153) |
-| `ContactShadows` (does not exist in three.js; it is from drei) | `ShadowMaterial` floor / blob shadow / `webgl_shadow_contact` technique |
-| `LightProbeGenerator.fromCubeRenderTarget()` sync | `await` it (async) |
-| `PostProcessing` (WebGPU) | `RenderPipeline` (r183) |
-| `three/addons/nodes/Nodes.js`, `three/nodes` | `three/tsl` (functions) and `three/webgpu` (classes) |
-
-## 4. Patterns That Are Still Valid but Often Wrong in Old Code
-
-- **Lights too dark:** intensities from pre-r155 tutorials (point light `1`) are far too low now.
-- **Washed-out textures:** missing `texture.colorSpace = THREE.SRGBColorSpace` on color maps.
-- **EffectComposer looks dark:** missing `OutputPass`.
-- **Model clones share animation:** use `SkeletonUtils.clone()` for skinned meshes.
-- **Mixing `three` and `three/webgpu` imports:** pick one entry point per app.
-- **Addon import from a different three copy:** a bundler resolving two `three` versions breaks `instanceof` checks. Dedupe (`npm ls three`).
-
-## 5. Upgrade Procedure
-
-1. Read the release notes for every version you skip: https://github.com/mrdoob/three.js/releases
-   and the migration guide: https://github.com/mrdoob/three.js/wiki/Migration-Guide
-2. Upgrade one or a few releases at a time; run the app and fix every console warning (they name the replacement).
-3. Search your code for the "Old" column entries above.
-4. Copy decoder/transcoder folders again (Draco `libs/draco/gltf/`, Basis `libs/basis/`): they must match the three version.
-5. If you use `@types/three`, upgrade it to the matching version.
-6. Re-check visuals: tone mapping, light intensity and shadow softness changes are silent.
-
-## See Also
-
-- `threejs-fundamentals` - Current setup patterns
-- `threejs-webgpu-tsl` - Moving from WebGL/GLSL to WebGPU/TSL
-- `threejs-postprocessing` - OutputPass and pass ordering
+1. Read the release notes (https://github.com/mrdoob/three.js/releases) and the migration guide
+   (https://github.com/mrdoob/three.js/wiki/Migration-Guide) for every skipped version.
+2. Upgrade a few releases at a time; fix every console warning (they name the replacement).
+3. Search your code for the "Old" columns above.
+4. Re-copy decoder folders (`libs/draco/gltf/`, `libs/basis/`) so they match the new version.
+5. Bump `@types/three` to match.
+6. Re-check visuals: tone mapping, light intensity, shadow softness and PMREM changes are silent.
